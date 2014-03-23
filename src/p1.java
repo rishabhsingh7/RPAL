@@ -4,6 +4,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Stack;
 
 /*
@@ -285,6 +286,14 @@ class Parser {
 	private void buildTree(String root, int n) {
 		int i = 0;	//To pop the required number of trees
 		Node temp = null;
+		String s;
+		if (n == 0 && l.getType().equals("<IDENTIFIER>") && !l.reserved.contains(root))
+			s = "<ID:"+root+">";
+		else if (n == 0 && l.getType().equals("<INTEGER>"))
+			s = "<INT:"+root+">";
+		else if (n == 0 && l.getType().equals("<STRING>") && !l.reserved.contains(root))
+			s = "<STR:'"+root+"'>";
+		else s = root;
 		while (i < n) {
 			Node sib = stack.pop();
 			sib.setSibling(temp);	//First popped node has sibling set as null, second popped has sibling as 'first popped'
@@ -292,7 +301,7 @@ class Parser {
 			i++;
 		}
 		Node r = new Node();
-		r.setToken(root);
+		r.setToken(s);
 		r.setChild(temp);
 		r.setSibling(null);
 		stack.push(r);	//Push the newly constructed tree which has root as token='root' from argument
@@ -708,7 +717,7 @@ class Parser {
 	private void preOrder(Node n, int level) {
 		String dot = "";
 		for (int i = 0 ; i < level ; i++)
-			dot = dot + "...";
+			dot = dot + ".";
 		System.out.println(dot+""+n.getToken());
 		if (n.getChild() != null) {
 			preOrder(n.getChild(), level+1);
