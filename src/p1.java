@@ -4,7 +4,6 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Stack;
 
 /*
@@ -18,7 +17,7 @@ import java.util.Stack;
 class Lexical {
 	private String line = null, type = null;
 	private BufferedReader br;
-	private StringBuilder token;
+	private String token;
 	private ArrayList<String> letters = new ArrayList<String>();	//Collection of allowed letters
 	private ArrayList<String> digits = new ArrayList<String>();	//Collection of allowed digits
 	private ArrayList<String> operators = new ArrayList<String>();	//Collection of allowed operators
@@ -50,8 +49,7 @@ class Lexical {
 		spaces.addAll(Arrays.asList(s));
 		s = new String[] {"(", ")", ";", ","};
 		punctions.addAll(Arrays.asList(s));
-		s = new String[] {"let", "in", "fn", "where", "aug", "or", "not", "gr", "ge", "ls", "le", "eq", "ne",
-				"true", "false", "nil", "dummy", "within", "and", "rec"};
+		s = new String[] {"let", "in", "fn", "where", "aug", "or", "not", "gr", "ge", "ls", "le", "eq", "ne", "within", "and", "rec"};
 		reserved.addAll(Arrays.asList(s));
 	}
 	
@@ -68,7 +66,7 @@ class Lexical {
 	//Parse the current line and select a token to return. If EndOfLine reached, make line = null for next line reading.
 	
 	private String parse() {
-		token = new StringBuilder();	
+		StringBuilder sb = new StringBuilder();	
 		boolean cont;
 		do {
 			cont = false;
@@ -82,7 +80,7 @@ class Lexical {
 			else if (letters.contains(line.charAt(0)+"")) {
 				type = "<IDENTIFIER>";	//TYPE can be needed by the parser corresponding to a token
 				while (true) {
-					token.append(line.charAt(0)+"");	//Append that character to the current token
+					sb.append(line.charAt(0)+"");	//Append that character to the current token
 					line = line.substring(1);	//Trim the first character from the LINE for next reading
 					if (line.length() == 0) {
 						line = null;
@@ -102,7 +100,7 @@ class Lexical {
 			else if (digits.contains(line.charAt(0)+"")) {
 				type = "<INTEGER>";
 				while (true) {
-					token.append(line.charAt(0)+"");
+					sb.append(line.charAt(0)+"");
 					line = line.substring(1);
 					if (line.length() == 0) {
 						line = null;
@@ -114,11 +112,19 @@ class Lexical {
 						break;
 				}
 			}
+			//COMMENT
+			else if (line.charAt(0) == '/' && line.charAt(1) == '/') {
+				type = "<DELETE>";
+				line = readFile();
+				if (line == null)
+					return "";
+				cont = true;
+			}
 			//OPERATOR
 			else if (operators.contains(line.charAt(0)+"")) {
 				type = "<OPERATOR>";
 				while (true) {
-					token.append(line.charAt(0)+"");
+					sb.append(line.charAt(0)+"");
 					line = line.substring(1);
 					if (line.length() == 0) {
 						line = null;
@@ -134,20 +140,20 @@ class Lexical {
 			else if (line.charAt(0) == '\'') {
 				type = "<STRING>";
 				while (true) {
-					token.append(line.charAt(0));
+					sb.append(line.charAt(0));
 					line = line.substring(1);
 					if (line.length() == 0) {
 						line = null;
 						break;
 					}
 					if (line.charAt(0) == '\\') {	//If escape character, don't consider the next character
-						token.append(line.charAt(0));
+						sb.append(line.charAt(0));
 						line = line.substring(1);
-						token.append(line.charAt(0));
+						sb.append(line.charAt(0));
 						line = line.substring(1);
 					}
 					if (line.charAt(0) == '\'') {
-						token.append(line.charAt(0));
+						sb.append(line.charAt(0));
 						line = line.substring(1);
 						if (line.length() == 0)
 							line = null;
@@ -165,31 +171,23 @@ class Lexical {
 					return "";
 				cont = true;
 			}
-			//COMMENT
-			else if (line.charAt(0) == '/' && line.charAt(1) == '/') {
-				type = "<DELETE>";
-				line = readFile();
-				if (line == null)
-					return "";
-				cont = true;
-			}
 			//PUNCTUATIONS
 			else if (punctions.contains(line.charAt(0)+"")) {
 				type = "<PUNCTIONS>";
-				token.append(line.charAt(0));
+				sb.append(line.charAt(0));
 				line = line.substring(1);
 				if (line.length() == 0)
 					line = null;
 			}
 		} while (cont == true);
 		
-		return token.toString();
+		return sb.toString();
 	}
 	
 	//Get a new token for parsing. Read a new line if the previous one is finished.
 	
 	public String getToken() {
-		String token = "";
+		token = "";
 		if (line == null) {
 			line = readFile();
 		}
@@ -216,6 +214,8 @@ class Lexical {
 	//Get type of the last returned token
 	
 	public String getType() {
+		if (token.equals(""))
+			type = "<EOF>";
 		return type;
 	}
 }
@@ -292,7 +292,7 @@ class Parser {
 		else if (n == 0 && l.getType().equals("<INTEGER>"))
 			s = "<INT:"+root+">";
 		else if (n == 0 && l.getType().equals("<STRING>") && !l.reserved.contains(root))
-			s = "<STR:'"+root+"'>";
+			s = "<STR:"+root+">";
 		else s = root;
 		while (i < n) {
 			Node sib = stack.pop();
@@ -546,7 +546,7 @@ class Parser {
 			read("@");
 			read(token);
 			R();
-			buildTree("@", 2);
+			buildTree("@", 3);
 		}
 	}
 	
@@ -556,7 +556,7 @@ class Parser {
 	 */
 	private void R() {
 		Rn();
-		while ((!l.reserved.contains(token)) && (l.getType().equals("<IDENTIFIER>") || l.getType().equals("<INTEGER>") || l.getType().equals("<STRING>") ||
+		while ((!l.reserved.contains(token)) && (l.getType().equals("<IDENTIFIER>") || l.getType().equals("<INTEGER>") || l.getType().equals("<STRING>") || 
 				token.equals("true") || token.equals("false") || token.equals("nil") || token.equals("(") || token.equals("dummy"))) {
 			Rn();
 			buildTree("gamma", 2);
@@ -664,7 +664,7 @@ class Parser {
 				}
 				read("=");
 				E();
-				buildTree("fcn_form", n+2);
+				buildTree("function_form", n+2);
 			}
 		}
 		else if (token.equals("(")) {
@@ -738,7 +738,7 @@ class Parser {
 	public void startParsing() {
 		token = l.getToken();
 		E();
-		if (token.equals("")) {	//EOF reached
+		if (l.getType().equals("<EOF>")) {	//EOF reached
 			printAST();
 		}
 	}
@@ -750,7 +750,7 @@ class Parser {
  * **************************************************
  */
 
-public class p1 {
+public class P1 {
 
 	public static void main(String args[]){
 		String fileName;
